@@ -59,6 +59,21 @@ describe("receiver", () => {
     expect((await t.pipeline.receive(publish, event("p1", 2))).kind).toBe("queued");
   });
 
+  it("releases the dedup marker when enqueueing fails, so the sender's retry gets through", async () => {
+    let fail = true;
+    const kv = new MemoryKv();
+    const p = createPipeline({
+      kv,
+      queue: { enqueue: async () => { if (fail) throw new Error("queue down"); } },
+      content: { listArticles: async () => [] },
+      site,
+      filter: { environment: "master", contentTypes: ["blogPost"] },
+    });
+    await expect(p.receive(publish, event("p1", 2))).rejects.toThrow("queue down");
+    fail = false;
+    expect((await p.receive(publish, event("p1", 2))).kind).toBe("queued");
+  });
+
   it("never queues filtered events", async () => {
     const t = setup([post("A")]);
     expect((await t.pipeline.receive("ContentManagement.Entry.auto_save", event("p1", 3))).kind).toBe("ignored");

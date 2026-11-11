@@ -42,10 +42,25 @@ export function createPipeline(deps: PipelineDeps) {
     }
     const { job } = parsed;
     const key = dedupKey(job);
-    const fresh = await deps.kv.setIfAbsent(`wire:dedup:${key}`, job.receivedAt, DEDUP_TTL_SECONDS);
-    const outcome: EventOutcome = fresh ? { kind: "queued", key } : { kind: "deduped", key };
+    const marker = `wire:dedup:${key}`;
+    const fresh = await deps.kv.setIfAbsent(marker, job.receivedAt, DEDUP_TTL_SECONDS);
+    if (!fresh) {
+      const outcome: EventOutcome = { kind: "deduped", key };
+      await log({ stage: "receiver", entryId: job.entryId, action: job.action, outcome });
+      return outcome;
+    }
+    try {
+      await deps.queue.enqueue(job, key);
+    } catch (err) {
+      // Release the marker: otherwise the sender's retry would be "deduped" and
+      // the event lost for good, the opposite of what dedup is for.
+      await deps.kv.delete(marker);
+      const outcome: EventOutcome = { kind: "failed", error: err instanceof Error ? err.message : String(err) };
+      await log({ stage: "receiver", entryId: job.entryId, action: job.action, outcome });
+      throw err;
+    }
+    const outcome: EventOutcome = { kind: "queued", key };
     await log({ stage: "receiver", entryId: job.entryId, action: job.action, outcome });
-    if (fresh) await deps.queue.enqueue(job, key);
     return outcome;
   }
 
@@ -115,7 +130,12 @@ export function createPipeline(deps: PipelineDeps) {
     return (await deps.kv.readList(LOG_KEY, count)).map((s) => JSON.parse(s) as EventLogEntry);
   }
 
-  return { receive, process, readFeed, listFeeds, recentEvents };
+  /** Records a request rejected before the pipeline (bad auth). Never logs the credential itself. */
+  async function rejected(reason: string) {
+    await log({ stage: "receiver", outcome: { kind: "failed", error: `rejected: ${reason}` } });
+  }
+
+  return { receive, process, readFeed, listFeeds, recentEvents, rejected };
 }
 
 export type Pipeline = ReturnType<typeof createPipeline>;
