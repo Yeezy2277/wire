@@ -12,6 +12,8 @@ export async function POST(req: Request) {
 
   if (secret) {
     if (!secretMatches(req.headers.get("x-webhook-secret"), secret)) {
+      const given = req.headers.get("x-webhook-secret");
+      await pipeline.rejected(given ? "x-webhook-secret doesn't match" : "x-webhook-secret header missing").catch(() => undefined);
       return NextResponse.json({ error: "invalid webhook secret" }, { status: 401 });
     }
   } else if (!mode.demo) {

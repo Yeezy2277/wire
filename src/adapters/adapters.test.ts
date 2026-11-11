@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { mapEntry } from "./contentful";
-import { verifyQStashSignature } from "./queue";
+import { qstashDedupId, verifyQStashSignature } from "./queue";
 
 const b64url = (s: string | Buffer) => Buffer.from(s).toString("base64url");
 
@@ -85,5 +85,11 @@ describe("FixtureSource", () => {
     await new Promise((r) => setTimeout(r, 5));
     const second = await new FixtureSource(kv).listArticles();
     expect(second).toEqual(first);
+  });
+});
+
+describe("qstashDedupId", () => {
+  it("keeps only characters QStash accepts", () => {
+    expect(qstashDedupId("5ZpQx:publish:v12")).toBe("5ZpQx_publish_v12");
   });
 });

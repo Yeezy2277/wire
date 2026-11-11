@@ -31,7 +31,8 @@ export class QStashQueue implements Queue {
         "Content-Type": "application/json",
         // QStash drops a second message with the same id: a second dedup layer
         // in case two receivers race past the Redis check.
-        "Upstash-Deduplication-Id": dedupId.replace(/[^A-Za-z0-9._:-]/g, "_"),
+        // QStash rejects ':' (and other separators) in deduplication ids.
+        "Upstash-Deduplication-Id": qstashDedupId(dedupId),
         "Upstash-Retries": "3",
       },
       body: JSON.stringify(job),
@@ -41,6 +42,9 @@ export class QStashQueue implements Queue {
 }
 
 const b64url = (buf: Buffer) => buf.toString("base64url");
+
+/** Our keys look like `entryId:action:v12`; QStash ids allow only letters, digits, '-' and '_'. */
+export const qstashDedupId = (key: string) => key.replace(/[^A-Za-z0-9_-]/g, "_");
 
 /**
  * Verifies the `Upstash-Signature` JWT (HS256) QStash puts on each delivery:
