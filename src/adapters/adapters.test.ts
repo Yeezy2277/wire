@@ -75,3 +75,15 @@ describe("mapEntry", () => {
     expect(mapEntry({ sys, fields: { title: "No slug" } }, new Map(), new Map())).toBeNull();
   });
 });
+
+describe("FixtureSource", () => {
+  it("gives every server instance the same sample, so demo hashes stay stable", async () => {
+    const { MemoryKv } = await import("./kv");
+    const { FixtureSource } = await import("./fixtures");
+    const kv = new MemoryKv();
+    const first = await new FixtureSource(kv).listArticles();
+    await new Promise((r) => setTimeout(r, 5));
+    const second = await new FixtureSource(kv).listArticles();
+    expect(second).toEqual(first);
+  });
+});
