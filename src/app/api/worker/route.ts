@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyQStashSignature } from "@/adapters/queue";
 import { container } from "@/server/container";
+import { apiError, apiOk, internalError, parseJson, requestId } from "@/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,22 +15,27 @@ const Job = z.object({
 
 /** Worker: QStash delivers jobs here. Non-2xx makes QStash retry, so failures throw through. */
 export async function POST(req: Request) {
+  const rid = requestId(req);
   const { pipeline, mode, workerUrl, signingKeys } = container();
   if (mode.queue !== "qstash") {
-    return NextResponse.json({ error: "worker endpoint is only used with QStash" }, { status: 404 });
+    return apiError(rid, 404, "not_found", "The worker endpoint is only used with QStash.");
   }
 
   const raw = await req.text();
   const check = verifyQStashSignature({ jwt: req.headers.get("upstash-signature"), body: raw, url: workerUrl, keys: signingKeys });
-  if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 401 });
+  if (!check.ok) return apiError(rid, 401, "invalid_signature", `QStash signature rejected: ${check.reason}.`);
 
-  const job = Job.safeParse(JSON.parse(raw));
-  // A malformed job will never succeed; 2xx stops pointless retries.
-  if (!job.success) return NextResponse.json({ error: "malformed job, dropped" }, { status: 200 });
+  // A malformed job will never succeed, so 2xx stops pointless retries. That
+  // includes a body that isn't JSON at all: throwing here would make QStash
+  // retry it forever.
+  const parsed = parseJson(raw);
+  const job = parsed.ok ? Job.safeParse(parsed.value) : null;
+  if (!job?.success) return apiOk(rid, { dropped: true, reason: parsed.ok ? "malformed job" : "body is not JSON" });
 
   try {
-    return NextResponse.json(await pipeline.process(job.data));
+    return apiOk(rid, await pipeline.process(job.data));
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "worker failed" }, { status: 500 });
+    // Non-2xx makes QStash retry; the pipeline already logged the failure.
+    return internalError(rid, "worker", err);
   }
 }

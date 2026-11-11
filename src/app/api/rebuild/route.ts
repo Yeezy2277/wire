@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { secretMatches } from "@/server/auth";
 import { container } from "@/server/container";
+import { apiError, apiOk, internalError, requestId } from "@/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,13 +14,16 @@ export const dynamic = "force-dynamic";
  * can use the webhook secret header instead.
  */
 async function rebuild(req: Request) {
-  const { pipeline, mode } = container();
-  const cron = process.env.CRON_SECRET?.trim();
-  const webhook = process.env.WEBHOOK_SECRET?.trim();
+  const rid = requestId(req);
+  const { pipeline, mode, env } = container();
+  const cron = env.CRON_SECRET;
+  const webhook = env.WEBHOOK_SECRET;
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
   const authorized =
     (cron && secretMatches(bearer, cron)) || (webhook && secretMatches(req.headers.get("x-webhook-secret"), webhook));
-  if (!authorized && !mode.demo) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!authorized && !mode.demo) {
+    return apiError(rid, 401, "unauthorized", "Send the cron Bearer token or the x-webhook-secret header.");
+  }
 
   try {
     const outcome = await pipeline.process({
@@ -29,9 +32,9 @@ async function rebuild(req: Request) {
       version: 0,
       receivedAt: new Date().toISOString(),
     });
-    return NextResponse.json(outcome);
+    return apiOk(rid, outcome);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "rebuild failed" }, { status: 500 });
+    return internalError(rid, "rebuild", err);
   }
 }
 
