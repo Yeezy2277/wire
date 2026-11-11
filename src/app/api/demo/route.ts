@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { container, ensureBuilt } from "@/server/container";
+import { apiError, apiOk, requestId } from "@/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +20,15 @@ const entryEvent = (id: string, v: number, contentType = "blogPost") => ({
  * and worker, so a visitor can watch each guard do its job.
  */
 export async function POST(req: Request) {
+  const rid = requestId(req);
   const { pipeline, mode, fixtures } = container();
-  if (!mode.demo || !fixtures) return NextResponse.json({ error: "demo is disabled on the live pipeline" }, { status: 404 });
+  if (!mode.demo || !fixtures) return apiError(rid, 404, "not_found", "The demo is disabled on the live pipeline.");
   await ensureBuilt();
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "unknown scenario" }, { status: 400 });
+  if (!parsed.success) {
+    return apiError(rid, 400, "invalid_body", "Unknown scenario.", parsed.error.flatten().fieldErrors);
+  }
 
   const publish = "ContentManagement.Entry.publish";
   const results = [];
@@ -60,5 +63,5 @@ export async function POST(req: Request) {
       break;
     }
   }
-  return NextResponse.json({ results });
+  return apiOk(rid, { results });
 }
