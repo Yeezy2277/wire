@@ -10,7 +10,6 @@ const Body = z.object({
 });
 
 const ARTICLE = "demo-webhook-loops";
-let version = 10;
 
 const entryEvent = (id: string, v: number, contentType = "blogPost") => ({
   sys: { id, type: "Entry", version: v, contentType: { sys: { id: contentType } }, environment: { sys: { id: "master" } } },
@@ -33,25 +32,27 @@ export async function POST(req: Request) {
   switch (parsed.data.scenario) {
     case "publish": {
       // An editor changes the headline and publishes: new version, feeds change.
-      version += 1;
-      fixtures.touch(ARTICLE, { title: `When a webhook calls itself (rev ${version})` });
-      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, version)));
+      const v = await fixtures.nextVersion(ARTICLE, true);
+      await fixtures.touch(ARTICLE, { title: `When a webhook calls itself (rev ${v})` });
+      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, v)));
       break;
     }
     case "duplicate": {
       // Contentful retries a delivery: the same version arrives twice.
-      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, version)));
+      const v = await fixtures.nextVersion(ARTICLE, false);
+      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, v)));
       break;
     }
     case "republish-unchanged": {
       // Another integration (e.g. a reading-time webhook) republishes the entry
       // without touching anything the feeds contain: new version, same bytes.
-      version += 1;
-      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, version)));
+      const v = await fixtures.nextVersion(ARTICLE, true);
+      results.push(await pipeline.receive(publish, entryEvent(ARTICLE, v)));
       break;
     }
     case "autosave": {
-      results.push(await pipeline.receive("ContentManagement.Entry.auto_save", entryEvent(ARTICLE, version + 1)));
+      const v = await fixtures.nextVersion(ARTICLE, false);
+      results.push(await pipeline.receive("ContentManagement.Entry.auto_save", entryEvent(ARTICLE, v + 1)));
       break;
     }
     case "other-type": {
