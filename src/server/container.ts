@@ -35,15 +35,16 @@ function build(): Container {
   const s = site();
   const workerUrl = `${s.wireUrl.replace(/\/$/, "")}/api/worker`;
 
-  const upstashUrl = env("UPSTASH_REDIS_REST_URL");
-  const upstashToken = env("UPSTASH_REDIS_REST_TOKEN");
+  // Vercel's Upstash integration names these KV_REST_API_*; a direct Upstash setup uses UPSTASH_REDIS_REST_*.
+  const upstashUrl = env("UPSTASH_REDIS_REST_URL") ?? env("KV_REST_API_URL");
+  const upstashToken = env("UPSTASH_REDIS_REST_TOKEN") ?? env("KV_REST_API_TOKEN");
   const kv: Kv = upstashUrl && upstashToken ? new UpstashKv(upstashUrl, upstashToken) : new MemoryKv();
 
   const spaceId = env("CONTENTFUL_SPACE_ID");
   const cdaToken = env("CONTENTFUL_ACCESS_TOKEN");
   const environment = env("CONTENTFUL_ENVIRONMENT") ?? "master";
   const contentTypes = (env("WIRE_CONTENT_TYPES") ?? "blogPost").split(",").map((t) => t.trim()).filter(Boolean);
-  const fixtures = spaceId && cdaToken ? undefined : new FixtureSource();
+  const fixtures = spaceId && cdaToken ? undefined : new FixtureSource(kv);
   const content: ContentSource = fixtures ?? new ContentfulSource(spaceId!, environment, cdaToken!, contentTypes[0]);
 
   const qstashToken = env("QSTASH_TOKEN");

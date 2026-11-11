@@ -1,4 +1,4 @@
-import type { ContentSource } from "@/core/ports";
+import type { ContentSource, Kv } from "@/core/ports";
 import type { Article } from "@/core/types";
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
@@ -54,20 +54,40 @@ export function sampleArticles(): Article[] {
   ];
 }
 
-/** Demo source: the sample, plus any edits made through the demo panel. */
+/**
+ * Demo source: the sample, plus edits made through the demo panel. Edits live
+ * in the same store as everything else, so they survive across serverless
+ * instances instead of resetting with each cold start.
+ */
 export class FixtureSource implements ContentSource {
-  constructor(private articles: Article[] = sampleArticles()) {}
+  private static KEY = "wire:demo:edits";
+  private base = sampleArticles();
+
+  constructor(private kv: Kv) {}
+
+  private async edits(): Promise<Record<string, Partial<Article>>> {
+    const raw = await this.kv.get(FixtureSource.KEY);
+    return raw ? (JSON.parse(raw) as Record<string, Partial<Article>>) : {};
+  }
 
   async listArticles() {
-    return this.articles.map((a) => ({ ...a }));
+    const edits = await this.edits();
+    return this.base.map((a) => ({ ...a, ...edits[a.id] }));
   }
 
   /** Simulates an editor changing a post (used by the demo endpoint). */
-  touch(id: string, patch: Partial<Article>) {
-    this.articles = this.articles.map((a) => (a.id === id ? { ...a, ...patch, updatedAt: new Date().toISOString() } : a));
+  async touch(id: string, patch: Partial<Article>) {
+    const edits = await this.edits();
+    edits[id] = { ...edits[id], ...patch, updatedAt: new Date().toISOString() };
+    await this.kv.set(FixtureSource.KEY, JSON.stringify(edits));
   }
 
-  ids() {
-    return this.articles.map((a) => a.id);
+  /** Monotonic per-entry version for simulated publishes, also kept in the store. */
+  async nextVersion(id: string, bump: boolean): Promise<number> {
+    const key = `wire:demo:version:${id}`;
+    const current = Number((await this.kv.get(key)) ?? 10);
+    if (!bump) return current;
+    await this.kv.set(key, String(current + 1));
+    return current + 1;
   }
 }
