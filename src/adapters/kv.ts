@@ -21,6 +21,10 @@ export class MemoryKv implements Kv {
     this.values.set(key, { value });
   }
 
+  async delete(key: string) {
+    this.values.delete(key);
+  }
+
   async setIfAbsent(key: string, value: string, ttlSeconds: number) {
     if ((await this.get(key)) !== null) return false;
     this.values.set(key, { value, expiresAt: this.clock() + ttlSeconds * 1000 });
@@ -62,6 +66,10 @@ export class UpstashKv implements Kv {
 
   async set(key: string, value: string) {
     await this.command("SET", key, value);
+  }
+
+  async delete(key: string) {
+    await this.command("DEL", key);
   }
 
   async setIfAbsent(key: string, value: string, ttlSeconds: number) {

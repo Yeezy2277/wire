@@ -4,6 +4,7 @@ import type { Article, FeedJob } from "./types";
 export interface Kv {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
   /** Atomic set-if-absent with expiry; true when this call created the key. */
   setIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean>;
   /** Prepend to a capped list (newest first). */

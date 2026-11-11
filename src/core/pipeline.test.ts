@@ -87,6 +87,16 @@ describe("worker", () => {
     expect((await t.pipeline.readFeed("rss.xml"))?.body).toContain("<title>B</title>");
   });
 
+  it("deletes a feed that is no longer generated", async () => {
+    const t = setup([post("A")]);
+    await t.pipeline.process(job);
+    t.setArticles([{ ...post("A"), tags: [] }]);
+    const after = await t.pipeline.process({ ...job, version: 3 });
+    expect(after.kind === "rebuilt" && after.changed).toContain("-tags/systems.xml");
+    expect(await t.pipeline.readFeed("tags/systems.xml")).toBeNull();
+    expect(await t.pipeline.listFeeds()).not.toContain("tags/systems.xml");
+  });
+
   it("logs and rethrows on failure so the queue retries", async () => {
     const failing = createPipeline({
       kv: new MemoryKv(),
