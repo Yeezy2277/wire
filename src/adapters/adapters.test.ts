@@ -93,3 +93,27 @@ describe("qstashDedupId", () => {
     expect(qstashDedupId("5ZpQx:publish:v12")).toBe("5ZpQx_publish_v12");
   });
 });
+
+describe("UpstashKv batching", () => {
+  it("applies writes and deletes in one MULTI/EXEC round trip, and LPUSH+LTRIM together", async () => {
+    const { UpstashKv } = await import("./kv");
+    const calls: { url: string; body: unknown }[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as unknown[][];
+      calls.push({ url, body });
+      return new Response(JSON.stringify(body.map(() => ({ result: "OK" }))));
+    }) as typeof fetch;
+    try {
+      const kv = new UpstashKv("https://kv.example/", "token");
+      await kv.writeBatch({ set: [["a", "1"], ["b", "2"]], del: ["c"] });
+      await kv.pushCapped("log", "x", 50);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+    expect(calls).toEqual([
+      { url: "https://kv.example/multi-exec", body: [["MSET", "a", "1", "b", "2"], ["DEL", "c"]] },
+      { url: "https://kv.example/multi-exec", body: [["LPUSH", "log", "x"], ["LTRIM", "log", 0, 49]] },
+    ]);
+  });
+});

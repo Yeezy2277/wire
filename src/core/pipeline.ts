@@ -28,8 +28,9 @@ export type PipelineDeps = {
 export function createPipeline(deps: PipelineDeps) {
   const now = () => deps.clock?.() ?? new Date();
 
-  async function log(entry: Omit<EventLogEntry, "at">) {
-    await deps.kv.pushCapped(LOG_KEY, JSON.stringify({ at: now().toISOString(), ...entry }), LOG_MAX);
+  async function log(entry: Omit<EventLogEntry, "at" | "id">) {
+    const full: EventLogEntry = { id: crypto.randomUUID(), at: now().toISOString(), ...entry };
+    await deps.kv.pushCapped(LOG_KEY, JSON.stringify(full), LOG_MAX);
   }
 
   /** Receiver: authenticate upstream, then filter → dedup → enqueue. Cheap and fast, so the webhook acks quickly. */
@@ -82,22 +83,26 @@ export function createPipeline(deps: PipelineDeps) {
         newsMinimumArticles: deps.newsMinimumArticles,
       });
 
+      // One read for every existing file, then one atomic write: a reader never
+      // sees half a rebuild, and the cost stays at two round trips however many
+      // tag feeds there are.
+      const [previous, existing] = await Promise.all([listFeeds(), deps.kv.getMany(files.map((f) => feedKey(f.path)))]);
       const changed: string[] = [];
-      for (const file of files) {
+      const writes: [string, string][] = [];
+      files.forEach((file, i) => {
         const hash = sha256(file.body);
-        const existing = await deps.kv.get(feedKey(file.path));
-        if (existing && (JSON.parse(existing) as StoredFeed).hash === hash) continue;
+        const before = existing[i];
+        if (before && (JSON.parse(before) as StoredFeed).hash === hash) return;
         const stored: StoredFeed = { ...file, hash, updatedAt: now().toISOString() };
-        await deps.kv.set(feedKey(file.path), JSON.stringify(stored));
+        writes.push([feedKey(file.path), JSON.stringify(stored)]);
         changed.push(file.path);
-      }
+      });
       // A feed that's no longer generated (last post with a tag unpublished) must
       // disappear, not linger with stale items.
       const current = new Set(files.map((f) => f.path));
-      const previous = await listFeeds();
       const removed = previous.filter((p) => !current.has(p));
-      for (const path of removed) await deps.kv.delete(feedKey(path));
-      await deps.kv.set(INDEX_KEY, JSON.stringify([...current]));
+      writes.push([INDEX_KEY, JSON.stringify([...current])]);
+      await deps.kv.writeBatch({ set: writes, del: removed.map(feedKey) });
       changed.push(...removed.map((p) => `-${p}`));
 
       const outcome: EventOutcome = {
