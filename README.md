@@ -71,6 +71,19 @@ were ever lost for good, every feed converges within a day. Feeds that stop
 being generated (the last post with a tag is unpublished) are deleted rather
 than left stale.
 
+## Operational details
+
+- **One error envelope.** Every API route answers errors as
+  `{ error, message, details?, requestId }` with an `x-request-id` header.
+  Internal failures are logged under that id; the response never echoes the raw
+  exception.
+- **Two round trips per rebuild.** The worker reads every existing feed with one
+  `MGET`, then writes changed files, deletions and the index in one
+  `MULTI/EXEC`, so a reader never sees half a rebuild however many tag feeds
+  there are.
+- **Security headers** on every response: CSP (`frame-ancestors 'none'`,
+  same-origin only), `nosniff`, `Referrer-Policy`, `X-Frame-Options`.
+
 ## Feeds
 
 | Path | What |
@@ -92,7 +105,7 @@ while `guid` stays canonical so readers don't see duplicates.
 ```bash
 npm install
 npm run dev        # demo mode: sample posts, in-memory store, inline queue
-npm test
+npm test           # core, routes (auth, error envelope) and DemoPanel component tests
 ```
 
 The demo panel replays realistic webhook traffic (an edit, a retried delivery,
@@ -101,7 +114,10 @@ receiver and worker so you can watch each guard in the event log.
 
 To run live, copy `.env.example` to `.env.local` and fill in Contentful
 (read-only CDA token), Upstash Redis and QStash. Each missing piece falls back
-to its demo stand-in independently. Then point a Contentful webhook at
+to its demo stand-in independently, but a half-configured one doesn't: the env
+is validated with Zod at startup, and a Contentful space without its token, a
+QStash token without a signing key, or a live pipeline without
+`WEBHOOK_SECRET` refuses to start and lists what's missing. Then point a Contentful webhook at
 `/api/webhooks/contentful` with a custom `x-webhook-secret` header, triggered on
 Entry publish, unpublish, archive and delete.
 
