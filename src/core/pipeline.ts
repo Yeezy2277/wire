@@ -88,7 +88,7 @@ export function createPipeline(deps: PipelineDeps) {
       const outcome: EventOutcome = {
         kind: "rebuilt",
         changed,
-        unchanged: files.length - changed.length,
+        unchanged: files.length - changed.filter((p) => !p.startsWith("-")).length,
         ms: Date.now() - started,
       };
       await log({ stage: "worker", entryId: job.entryId, action: job.action, outcome });

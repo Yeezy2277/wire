@@ -93,6 +93,8 @@ describe("worker", () => {
     t.setArticles([{ ...post("A"), tags: [] }]);
     const after = await t.pipeline.process({ ...job, version: 3 });
     expect(after.kind === "rebuilt" && after.changed).toContain("-tags/systems.xml");
+    // Removed feeds don't count against the files that were generated and left alone.
+    expect(after.kind === "rebuilt" && after.unchanged).toBeGreaterThanOrEqual(0);
     expect(await t.pipeline.readFeed("tags/systems.xml")).toBeNull();
     expect(await t.pipeline.listFeeds()).not.toContain("tags/systems.xml");
   });
