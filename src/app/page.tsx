@@ -28,8 +28,8 @@ export default async function Home() {
   const [feeds, events] = await Promise.all([pipeline.listFeeds(), pipeline.recentEvents(25)]);
 
   return (
-    <main>
-      <header>
+    <>
+      <header className="wrap">
         <h1>Wire</h1>
         <p className="lede">
           An event-driven feeds pipeline for a headless CMS. A rebuild of the shape of a production system I built for a
@@ -43,6 +43,7 @@ export default async function Home() {
         </div>
       </header>
 
+      <main id="main" tabIndex={-1} className="wrap">
       <section className="panel" aria-labelledby="flow-h">
         <h2 id="flow-h">Pipeline</h2>
         <div className="flow">
@@ -77,14 +78,16 @@ export default async function Home() {
       <section className="panel" aria-labelledby="log-h">
         <h2 id="log-h">Recent events</h2>
         {events.length ? (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Event log, scrolls sideways on narrow screens">
             <table>
+              <caption className="sr-only">Pipeline events, newest first. Times are UTC.</caption>
               <thead>
                 <tr><th>When (UTC)</th><th>Stage</th><th>Entry</th><th>Outcome</th><th>Detail</th></tr>
               </thead>
               <tbody>
                 {events.map((e, i) => (
-                  <tr key={`${e.at}-${i}`}>
+                  // Entries logged before ids existed fall back to time + position.
+                  <tr key={e.id ?? `${e.at}-${i}`}>
                     <td className="when">{e.at.slice(11, 19)}</td>
                     <td>{e.stage}</td>
                     <td className="mono">{e.entryId ? `${e.entryId}${e.action ? ` · ${e.action}` : ""}` : "—"}</td>
@@ -100,10 +103,12 @@ export default async function Home() {
         )}
       </section>
 
-      <footer>
+      </main>
+
+      <footer className="wrap">
         Source: <a href="https://github.com/Yeezy2277/wire">github.com/Yeezy2277/wire</a> · Feeds for{" "}
         <a href="https://lumen.vitaliipopov.dev">The Lumen Review</a>
       </footer>
-    </main>
+    </>
   );
 }
