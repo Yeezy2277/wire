@@ -49,6 +49,8 @@ export type EventOutcome =
   | { kind: "failed"; error: string };
 
 export type EventLogEntry = {
+  /** Stable key for UIs; absent on entries written before it was added. */
+  id?: string;
   at: string;
   stage: "receiver" | "worker";
   entryId?: string;
