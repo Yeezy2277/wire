@@ -76,7 +76,14 @@ export function createPipeline(deps: PipelineDeps) {
         await deps.kv.set(feedKey(file.path), JSON.stringify(stored));
         changed.push(file.path);
       }
-      await deps.kv.set(INDEX_KEY, JSON.stringify(files.map((f) => f.path)));
+      // A feed that's no longer generated (last post with a tag unpublished) must
+      // disappear, not linger with stale items.
+      const current = new Set(files.map((f) => f.path));
+      const previous = await listFeeds();
+      const removed = previous.filter((p) => !current.has(p));
+      for (const path of removed) await deps.kv.delete(feedKey(path));
+      await deps.kv.set(INDEX_KEY, JSON.stringify([...current]));
+      changed.push(...removed.map((p) => `-${p}`));
 
       const outcome: EventOutcome = {
         kind: "rebuilt",

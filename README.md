@@ -63,6 +63,14 @@ This is the fix for the classic feedback loop: a sync job that writes back to
 the CMS triggers the webhook that started it. In production that bit us; here
 the guards above are the design, not a patch.
 
+## Safety net
+
+`/api/rebuild` runs a full rebuild directly (no queue). A daily Vercel cron
+calls it (`Authorization: Bearer $CRON_SECRET`), so even if a webhook delivery
+were ever lost for good, every feed converges within a day. Feeds that stop
+being generated (the last post with a tag is unpublished) are deleted rather
+than left stale.
+
 ## Feeds
 
 | Path | What |
