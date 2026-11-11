@@ -1,10 +1,15 @@
 import type { ContentSource, Kv } from "@/core/ports";
 import type { Article } from "@/core/types";
 
-const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
-/** A small, realistic sample so demo mode shows full feeds with zero setup. */
-export function sampleArticles(): Article[] {
+/**
+ * A small, realistic sample so demo mode shows full feeds with zero setup.
+ * Dates are relative to a fixed epoch, so every server instance produces the
+ * same bytes (relative to "now" they'd differ per cold start and defeat the
+ * hash comparison).
+ */
+export function sampleArticles(epoch: number): Article[] {
+  const hoursAgo = (h: number) => new Date(epoch - h * 3_600_000).toISOString();
   return [
     {
       id: "demo-webhook-loops",
@@ -47,7 +52,7 @@ export function sampleArticles(): Article[] {
       slug: "coming-soon",
       title: "Scheduled post (not in any feed until its date)",
       excerpt: "Future-dated posts stay out of every feed.",
-      publishedAt: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      publishedAt: new Date(epoch + 3 * 86_400_000).toISOString(),
       updatedAt: hoursAgo(1),
       tags: ["Frontend"],
     },
@@ -61,9 +66,16 @@ export function sampleArticles(): Article[] {
  */
 export class FixtureSource implements ContentSource {
   private static KEY = "wire:demo:edits";
-  private base = sampleArticles();
+  private static EPOCH = "wire:demo:epoch";
 
   constructor(private kv: Kv) {}
+
+  /** The first instance to run fixes the epoch; everyone after reads the same one. */
+  private async base(): Promise<Article[]> {
+    const proposed = String(Date.now());
+    await this.kv.setIfAbsent(FixtureSource.EPOCH, proposed, 30 * 86_400);
+    return sampleArticles(Number((await this.kv.get(FixtureSource.EPOCH)) ?? proposed));
+  }
 
   private async edits(): Promise<Record<string, Partial<Article>>> {
     const raw = await this.kv.get(FixtureSource.KEY);
@@ -71,8 +83,8 @@ export class FixtureSource implements ContentSource {
   }
 
   async listArticles() {
-    const edits = await this.edits();
-    return this.base.map((a) => ({ ...a, ...edits[a.id] }));
+    const [base, edits] = await Promise.all([this.base(), this.edits()]);
+    return base.map((a) => ({ ...a, ...edits[a.id] }));
   }
 
   /** Simulates an editor changing a post (used by the demo endpoint). */
