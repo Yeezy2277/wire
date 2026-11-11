@@ -29,8 +29,13 @@ export default async function Home() {
 
   return (
     <>
-      <header className="wrap">
-        <h1>Wire</h1>
+      <header className="wrap masthead">
+        <p className="eyebrow">
+          <span className="dot" aria-hidden="true" /> Feeds desk · {mode.demo ? "demo run" : "live"}
+        </p>
+        <h1>
+          Wire<span className="cursor" aria-hidden="true" />
+        </h1>
         <p className="lede">
           An event-driven feeds pipeline for a headless CMS. A rebuild of the shape of a production system I built for a
           news publisher: content changes in Contentful fan out into RSS, JSON Feed, Google News and partner feeds without
@@ -46,13 +51,14 @@ export default async function Home() {
       <main id="main" tabIndex={-1} className="wrap">
       <section className="panel" aria-labelledby="flow-h">
         <h2 id="flow-h">Pipeline</h2>
-        <div className="flow">
-          <span className="step">Contentful webhook</span><span className="arrow">→</span>
-          <span className="step">receiver: auth · filter · dedup</span><span className="arrow">→</span>
-          <span className="step">queue (at-least-once)</span><span className="arrow">→</span>
-          <span className="step">worker: rebuild · hash · write changed</span><span className="arrow">→</span>
-          <span className="step">/feeds/*</span>
-        </div>
+        {/* Rendered as a strip of tape: each stage is a punched frame. */}
+        <ol className="flow tape">
+          <li className="step"><span className="n">01</span>Contentful webhook</li>
+          <li className="step"><span className="n">02</span>receiver: auth · filter · dedup</li>
+          <li className="step"><span className="n">03</span>queue (at-least-once)</li>
+          <li className="step"><span className="n">04</span>worker: rebuild · hash · write changed</li>
+          <li className="step"><span className="n">05</span>/feeds/*</li>
+        </ol>
         <ul className="guards">
           <li><b>Filter at the edge.</b> Autosaves, other content types and other environments never reach the queue.</li>
           <li><b>Dedup window.</b> The same entry, action and version within 5 minutes collapses to one job (retries, double deliveries).</li>
