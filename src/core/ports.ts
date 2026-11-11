@@ -5,6 +5,13 @@ export interface Kv {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   delete(key: string): Promise<void>;
+  /** One round trip for many reads; null where a key is missing. */
+  getMany(keys: string[]): Promise<(string | null)[]>;
+  /**
+   * Writes and deletes applied together, atomically where the store allows it
+   * (a single MULTI/EXEC on Upstash), so readers never see half a rebuild.
+   */
+  writeBatch(writes: { set?: [string, string][]; del?: string[] }): Promise<void>;
   /** Atomic set-if-absent with expiry; true when this call created the key. */
   setIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean>;
   /** Prepend to a capped list (newest first). */
