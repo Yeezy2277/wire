@@ -11,7 +11,7 @@ without a deploy, and without doing the same work twice.
 > free infrastructure, wired to my own Contentful blog
 > ([The Lumen Review](https://lumen.vitaliipopov.dev)).
 
-**Live:** deploy pending · runs with zero config in demo mode (`npm run dev`).
+**Live:** [wire.vitaliipopov.dev](https://wire.vitaliipopov.dev) · runs with zero config in demo mode (`npm run dev`).
 
 ## Architecture
 
