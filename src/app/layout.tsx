@@ -7,9 +7,9 @@ const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["300", "400", "600", "
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "600", "800"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Wire — feeds pipeline",
+  title: "Wire, a feeds pipeline",
   description:
-    "Event-driven feeds pipeline: Contentful webhooks → verified receiver → queue → idempotent worker → RSS, JSON Feed, Google News and partner feeds.",
+    "Event-driven feeds pipeline. Contentful webhooks reach a verified receiver, a queue hands jobs to an idempotent worker, and the worker writes RSS, JSON Feed, Google News and partner feeds.",
 };
 
 export const viewport = {
