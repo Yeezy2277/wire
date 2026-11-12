@@ -155,7 +155,7 @@ h2::before { content: ""; width: 14px; height: 2px; background: var(--accent); }
 
 .feeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 18px; }
 .feeds a { font: 400 13px var(--mono); display: flex; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
-.feeds a::before { content: "↳"; color: var(--muted); flex: none; }
+.feeds a::before { content: ""; width: 6px; height: 6px; margin-top: 0.55em; background: var(--accent); flex: none; }
 
 /* ---- event log: teleprinter lines ---- */
 .table-wrap { overflow-x: auto; }

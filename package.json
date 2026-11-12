@@ -2,7 +2,7 @@
   "name": "wire",
   "version": "0.1.0",
   "private": true,
-  "description": "Wire — an event-driven feeds pipeline: Contentful webhooks → verified receiver → queue → idempotent worker → RSS, JSON Feed, Google News and partner feeds.",
+  "description": "Wire: an event-driven feeds pipeline from Contentful webhooks to RSS, JSON Feed, Google News and partner feeds.",
   "type": "module",
   "scripts": {
     "dev": "next dev",

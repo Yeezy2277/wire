@@ -15,8 +15,8 @@ function describe(e: EventLogEntry): string {
       return `job ${o.key} handed to the worker`;
     case "rebuilt":
       return o.changed.length
-        ? `${o.changed.length} file(s) changed (${o.changed.slice(0, 3).join(", ")}${o.changed.length > 3 ? "…" : ""}), ${o.unchanged} untouched · ${o.ms} ms`
-        : `nothing changed, ${o.unchanged} files left as they were · ${o.ms} ms`;
+        ? `${o.changed.length} file(s) changed (${o.changed.slice(0, 3).join(", ")}${o.changed.length > 3 ? "…" : ""}), ${o.unchanged} untouched, ${o.ms} ms`
+        : `nothing changed, ${o.unchanged} files left as they were, ${o.ms} ms`;
     case "failed":
       return o.error;
   }
@@ -31,7 +31,7 @@ export default async function Home() {
     <>
       <header className="wrap masthead">
         <p className="eyebrow">
-          <span className="dot" aria-hidden="true" /> Feeds desk · {mode.demo ? "demo run" : "live"}
+          <span className="dot" aria-hidden="true" /> Feeds desk / {mode.demo ? "demo run" : "live"}
         </p>
         <h1>
           Wire<span className="cursor" aria-hidden="true" />
@@ -54,9 +54,9 @@ export default async function Home() {
         {/* Rendered as a strip of tape: each stage is a punched frame. */}
         <ol className="flow tape">
           <li className="step"><span className="n">01</span>Contentful webhook</li>
-          <li className="step"><span className="n">02</span>receiver: auth · filter · dedup</li>
+          <li className="step"><span className="n">02</span>receiver: auth, filter, dedup</li>
           <li className="step"><span className="n">03</span>queue (at-least-once)</li>
-          <li className="step"><span className="n">04</span>worker: rebuild · hash · write changed</li>
+          <li className="step"><span className="n">04</span>worker: rebuild, hash, write changed</li>
           <li className="step"><span className="n">05</span>/feeds/*</li>
         </ol>
         <ul className="guards">
@@ -96,7 +96,7 @@ export default async function Home() {
                   <tr key={e.id ?? `${e.at}-${i}`}>
                     <td className="when">{e.at.slice(11, 19)}</td>
                     <td>{e.stage}</td>
-                    <td className="mono">{e.entryId ? `${e.entryId}${e.action ? ` · ${e.action}` : ""}` : "—"}</td>
+                    <td className="mono">{e.entryId ? `${e.entryId}${e.action ? ` (${e.action})` : ""}` : "—"}</td>
                     <td><span className={`pill ${e.outcome.kind}`}>{e.outcome.kind}</span></td>
                     <td className="detail">{describe(e)}</td>
                   </tr>
@@ -112,7 +112,7 @@ export default async function Home() {
       </main>
 
       <footer className="wrap">
-        Source: <a href="https://github.com/Yeezy2277/wire">github.com/Yeezy2277/wire</a> · Feeds for{" "}
+        Source: <a href="https://github.com/Yeezy2277/wire">github.com/Yeezy2277/wire</a>. Feeds for{" "}
         <a href="https://lumen.vitaliipopov.dev">The Lumen Review</a>
       </footer>
     </>
